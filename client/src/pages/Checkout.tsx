@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,10 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCart } from "@/hooks/use-cart";
-import { useCreateOrder } from "@/hooks/use-orders";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { Loader2, ShieldCheck, CreditCard, Wallet } from "lucide-react";
+import { api } from "@shared/routes";
 
-// Schema for address form
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const addressSchema = z.object({
   fullName: z.string().min(2, "Name is required"),
   phone: z.string().min(10, "Valid phone number required"),
@@ -25,27 +34,129 @@ type AddressFormValues = z.infer<typeof addressSchema>;
 
 export default function Checkout() {
   const { data: cartItems } = useCart();
-  const { mutate: createOrder, isPending } = useCreateOrder();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const [paymentMode, setPaymentMode] = useState<"cod" | "razorpay">("cod");
+  const [isPending, setIsPending] = useState(false);
   
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<AddressFormValues>({
+  const { register, handleSubmit, formState: { errors } } = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
   });
 
-  // Calculate total
   const totalAmount = cartItems?.reduce((acc, item) => {
     return acc + (parseFloat(item.product.price as unknown as string) * item.quantity);
   }, 0) || 0;
 
-  const onSubmit = (data: AddressFormValues) => {
-    createOrder({
-      totalAmount: totalAmount as any, // Drizzle decimal handling
-      paymentMode: "cod", // Hardcoded for now, could be state
-      address: data,
+  const verifyPayment = async (orderId: number, razorpayPaymentId: string, razorpaySignature: string) => {
+    const res = await fetch(`/api/orders/${orderId}/verify-payment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ razorpayPaymentId, razorpaySignature }),
     });
+    if (!res.ok) throw new Error("Payment verification failed");
+    return res.json();
+  };
+
+  const onSubmit = async (data: AddressFormValues) => {
+    setIsPending(true);
+    
+    try {
+      const res = await fetch(api.orders.create.path, {
+        method: api.orders.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          totalAmount: totalAmount,
+          paymentMode: paymentMode,
+          address: data,
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to create order");
+      }
+      
+      const order = await res.json();
+
+      if (paymentMode === "razorpay" && order.razorpayOrderId) {
+        const options = {
+          key: "rzp_test_S6wZXGrAyfrnZA",
+          amount: Math.round(totalAmount * 100),
+          currency: "INR",
+          name: "Parni Jewels",
+          description: "Order Payment",
+          order_id: order.razorpayOrderId,
+          handler: async function (response: any) {
+            try {
+              await verifyPayment(
+                order.id,
+                response.razorpay_payment_id,
+                response.razorpay_signature
+              );
+              queryClient.invalidateQueries({ queryKey: [api.cart.get.path] });
+              queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
+              toast({ title: "Payment Successful!", description: "Thank you for your purchase." });
+              setLocation(`/orders`);
+            } catch (error) {
+              toast({ 
+                title: "Payment Verification Failed", 
+                description: "Please contact support.", 
+                variant: "destructive" 
+              });
+            }
+          },
+          prefill: {
+            name: data.fullName,
+            contact: data.phone,
+          },
+          theme: {
+            color: "#D4A853",
+          },
+          modal: {
+            ondismiss: function() {
+              setIsPending(false);
+              toast({ 
+                title: "Payment Cancelled", 
+                description: "Your order has been saved. You can complete payment later.", 
+                variant: "destructive" 
+              });
+            }
+          }
+        };
+        
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } else {
+        queryClient.invalidateQueries({ queryKey: [api.cart.get.path] });
+        queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
+        toast({ title: "Order Placed!", description: "Thank you for your purchase." });
+        setLocation(`/orders`);
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Order Failed", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    } finally {
+      if (paymentMode !== "razorpay") {
+        setIsPending(false);
+      }
+    }
   };
 
   if (!cartItems || cartItems.length === 0) {
-    return <div>Cart is empty</div>; // Should redirect ideally
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-12 text-center">
+          <h1 className="font-serif text-2xl font-bold mb-4">Your cart is empty</h1>
+          <Button onClick={() => setLocation("/products")}>Continue Shopping</Button>
+        </div>
+        <Footer />
+      </div>
+    );
   }
 
   return (
@@ -57,7 +168,6 @@ export default function Checkout() {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-5xl mx-auto">
           
-          {/* Form */}
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-border shadow-sm">
               <h2 className="font-serif text-xl font-bold mb-6">Shipping Address</h2>
@@ -103,20 +213,23 @@ export default function Checkout() {
 
             <div className="bg-white p-6 rounded-2xl border border-border shadow-sm">
               <h2 className="font-serif text-xl font-bold mb-6">Payment Method</h2>
-              <RadioGroup defaultValue="cod">
-                <div className="flex items-center space-x-2 border p-4 rounded-xl border-primary/20 bg-primary/5">
-                  <RadioGroupItem value="cod" id="cod" />
-                  <Label htmlFor="cod" className="font-medium">Cash on Delivery (COD)</Label>
+              <RadioGroup value={paymentMode} onValueChange={(val) => setPaymentMode(val as "cod" | "razorpay")}>
+                <div className={`flex items-center space-x-3 border p-4 rounded-xl cursor-pointer transition-all ${paymentMode === "razorpay" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+                  <RadioGroupItem value="razorpay" id="razorpay" />
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <Label htmlFor="razorpay" className="font-medium cursor-pointer flex-1">
+                    Pay Online (Cards, UPI, Netbanking)
+                  </Label>
                 </div>
-                <div className="flex items-center space-x-2 border p-4 rounded-xl opacity-50 cursor-not-allowed">
-                  <RadioGroupItem value="online" id="online" disabled />
-                  <Label htmlFor="online">Online Payment (Coming Soon)</Label>
+                <div className={`flex items-center space-x-3 border p-4 rounded-xl cursor-pointer transition-all mt-3 ${paymentMode === "cod" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+                  <RadioGroupItem value="cod" id="cod" />
+                  <Wallet className="h-5 w-5 text-primary" />
+                  <Label htmlFor="cod" className="font-medium cursor-pointer flex-1">Cash on Delivery (COD)</Label>
                 </div>
               </RadioGroup>
             </div>
           </div>
 
-          {/* Summary Side */}
           <div>
              <div className="bg-white p-6 rounded-2xl border border-border shadow-sm sticky top-24">
               <h2 className="font-serif text-xl font-bold mb-6">Order Summary</h2>
@@ -160,7 +273,7 @@ export default function Checkout() {
                 disabled={isPending}
               >
                 {isPending ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2 h-5 w-5" />}
-                {isPending ? "Processing..." : "Place Order"}
+                {isPending ? "Processing..." : paymentMode === "razorpay" ? "Pay Now" : "Place Order"}
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-4">
                 By placing this order, you agree to our Terms of Service and Privacy Policy.
