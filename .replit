@@ -33,3 +33,9 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+RAZORPAY_KEY_ID = "rzp_test_S6wZXGrAyfrnZA"
+RAZORPAY_KEY_SECRET = "LyXa3GNr2hv0osTdhF9PFT4L"
