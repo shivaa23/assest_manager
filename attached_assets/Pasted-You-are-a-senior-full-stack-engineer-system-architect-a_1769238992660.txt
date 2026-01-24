@@ -1,0 +1,200 @@
+You are a senior full-stack engineer, system architect, and DevOps expert.
+
+Build a COMPLETE, PRODUCTION-READY full-stack Indian jewellery ecommerce website named **“Parni Jewels”**.
+Reference website (design + UX inspiration only): https://zerakijewels.com/
+Do NOT copy branding or assets. Use original UI.
+
+================================================
+TECH STACK (STRICT – DO NOT CHANGE)
+================================================
+Frontend:
+- React + Vite
+- Tailwind CSS
+- Mobile-first responsive design
+- React Router
+- SEO optimization using:
+  - React Helmet / react-helmet-async
+  - Meta tags (title, description, OG tags)
+  - SEO-friendly URLs
+  - Proper heading hierarchy (H1, H2, H3)
+  - Sitemap generation (basic)
+  - Robots.txt
+
+Backend:
+- Node.js
+- Express.js
+- MongoDB with Mongoose
+- Session-based authentication (express-session, memory store for now)
+
+Payments & Logistics:
+- Razorpay (Prepaid)
+- Cash on Delivery (COD)
+- Shiprocket API (order creation & tracking)
+
+================================================
+CORE FEATURES (DO NOT SKIP ANY)
+================================================
+1. Homepage
+   - Hero banner with jewellery visuals
+   - Offer banners (Buy 1 Get 1 / Buy 1 Get 2 Free)
+   - Featured collections
+   - SEO optimized homepage meta tags
+
+2. Product Listing Page
+   - Categories:
+     • Earrings
+     • Mangalsutra
+     • Necklaces
+     • Rings
+     • Bangles
+   - Category-based filtering
+   - SEO-friendly category URLs
+     (example: /products/mangalsutra)
+
+3. Product Detail Page
+   - SEO-friendly product URL
+     (example: /product/parni-gold-mangalsutra)
+   - Image gallery / carousel
+   - Price, discount calculation
+   - COD available badge
+   - Add to cart
+   - SEO meta tags per product
+
+4. Authentication
+   - Signup page
+   - Login page
+   - Session-based authentication
+   - Protected routes (Cart, Checkout, Orders)
+
+5. Cart & Checkout
+   - Add/remove items
+   - Quantity control
+   - Price summary
+   - Address form
+
+6. Payments
+   - Razorpay order creation (backend)
+   - Razorpay checkout (frontend)
+   - Payment signature verification
+   - Payment success & failure pages
+   - COD checkout without Razorpay
+
+7. Orders
+   - Save orders in MongoDB
+   - Order status:
+     • Pending
+     • Paid
+     • COD Confirmed
+     • Shipped
+   - Shiprocket API integration for shipping order creation
+
+8. Admin (Basic)
+   - Admin login (simple role check)
+   - Add product
+   - Edit product
+   - Upload:
+     • Name
+     • Category
+     • Price
+     • Discount
+     • Images
+     • COD availability
+
+================================================
+SEO REQUIREMENTS (VERY IMPORTANT)
+================================================
+- Use react-helmet-async
+- Dynamic meta tags for:
+  • Home
+  • Category pages
+  • Product pages
+- SEO-friendly URLs (no random IDs in URLs)
+- Sitemap.xml generation
+- robots.txt
+- Open Graph tags for sharing
+- Proper semantic HTML
+- Fast loading & optimized images
+
+================================================
+BACKEND REQUIREMENTS
+================================================
+- Clean folder structure:
+  server/
+    ├── config/
+    ├── models/
+    ├── routes/
+    ├── controllers/
+    ├── middleware/
+- Razorpay:
+  • Secure order creation
+  • Signature verification using crypto
+- Shiprocket:
+  • Auth token generation
+  • Order creation API
+- Environment variables for ALL secrets
+- CORS configured correctly
+- Error handling middleware
+- Well-commented, readable code
+
+================================================
+FRONTEND REQUIREMENTS
+================================================
+- Tailwind CSS
+- Modern jewellery ecommerce UI
+- Mobile-first
+- React Context for:
+  • Auth
+  • Cart
+- Razorpay checkout integration
+- COD flow
+- SEO implemented correctly
+- Fully responsive on mobile, tablet, desktop
+
+================================================
+PROJECT STRUCTURE (MANDATORY)
+================================================
+parni-jewels/
+├── client/        # React + Vite frontend
+├── server/        # Node + Express backend
+├── .env.example
+├── README.md
+
+================================================
+DELIVERABLES
+================================================
+1. Fully runnable frontend & backend code
+2. Proper folder structure
+3. README with clear setup steps
+4. .env.example with all required keys:
+   - MongoDB
+   - Razorpay
+   - Shiprocket
+   - Session secret
+5. App must run on:
+   - Replit
+   - Local system after ZIP download
+
+================================================
+TESTING & QUALITY (MANDATORY)
+================================================
+Before final output:
+- Test Signup/Login
+- Test Add to Cart
+- Test Razorpay prepaid payment
+- Test COD order
+- Test order saved in MongoDB
+- Test Shiprocket order creation
+- Test SEO meta tags in browser
+- Fix ALL runtime and build errors
+
+================================================
+IMPORTANT RULES
+================================================
+- App name must be **Parni Jewels**
+- ZerakiJewels is ONLY for reference
+- Do NOT leave TODOs
+- Do NOT skip core logic
+- Ensure `npm install` and `npm run dev` work perfectly
+- Deliver a ZIP-ready, production-grade project
+
+Build everything now completely.

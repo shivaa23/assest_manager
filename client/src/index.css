@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+
+  /* Elegant Palette: Gold, Deep Red, Cream */
+  --background: 40 33% 98%;      /* Soft Cream #FAF8F5 */
+  --foreground: 220 15% 20%;     /* Dark Slate #2B303B */
+  
+  --primary: 43 74% 49%;         /* Gold #D4AF37 */
+  --primary-foreground: 40 33% 98%;
+  
+  --secondary: 355 78% 35%;      /* Deep Royal Red #9E131F */
+  --secondary-foreground: 0 0% 100%;
+  
+  --muted: 40 20% 92%;           /* Light Beige */
+  --muted-foreground: 220 10% 45%;
+  
+  --accent: 215 50% 30%;         /* Royal Blue #264673 */
+  --accent-foreground: 0 0% 100%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 40 20% 88%;
+  --input: 40 20% 88%;
+  --ring: 43 74% 49%;
+  
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Dark Mode Palette: Deep Slate, Gold */
+  --background: 220 15% 10%;
+  --foreground: 40 33% 98%;
+  
+  --primary: 43 74% 49%;
+  --primary-foreground: 220 15% 10%;
+  
+  --secondary: 355 78% 45%;
+  --secondary-foreground: 0 0% 100%;
+  
+  --muted: 220 15% 16%;
+  --muted-foreground: 220 10% 65%;
+  
+  --accent: 215 50% 40%;
+  --accent-foreground: 0 0% 100%;
+  
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 220 15% 16%;
+  --input: 220 15% 16%;
+  --ring: 43 74% 49%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased font-sans selection:bg-primary/20;
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-gold {
+    color: hsl(var(--primary));
+  }
+  .bg-gold {
+    background-color: hsl(var(--primary));
+  }
+  .bg-gradient-gold {
+    background: linear-gradient(135deg, #D4AF37 0%, #F5E08E 50%, #B89628 100%);
+  }
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #D4AF37 0%, #F5E08E 50%, #B89628 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
