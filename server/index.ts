@@ -1,18 +1,36 @@
+// server/index.ts
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import 'dotenv/config';
+import session from "express-session";
+import pgSession from "connect-pg-simple";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
 
+// Extend Request type for rawBody
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
 
+// ✅ Session store with Postgres (production safe)
+const PgStore = pgSession(session);
+app.use(
+  session({
+    store: new PgStore({ pool, tableName: "session" }),
+    secret: process.env.SESSION_SECRET || "supersecret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 1000 * 60 * 60 * 24 }, // 1 day
+  })
+);
+
+// JSON body parser
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -20,9 +38,9 @@ app.use(
     },
   }),
 );
-
 app.use(express.urlencoded({ extended: false }));
 
+// Logger helper
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -30,10 +48,10 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// API logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -59,9 +77,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Main async IIFE
 (async () => {
   await registerRoutes(httpServer, app);
 
+  // Error handling middleware
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -75,6 +95,7 @@ app.use((req, res, next) => {
     return res.status(status).json({ message });
   });
 
+  // Serve frontend static files in production
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -82,10 +103,9 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
+  // Listen on Render-assigned port and 0.0.0.0
   const port = parseInt(process.env.PORT || "3000", 10);
-
-  // ✅ FIXED LISTEN (LOCAL SAFE)
-  httpServer.listen(port, "127.0.0.1", () => {
-    log(`serving on http://localhost:${port}`);
+  httpServer.listen(port, "0.0.0.0", () => {
+    log(`serving on port ${port}`);
   });
 })();
