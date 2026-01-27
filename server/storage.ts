@@ -10,26 +10,22 @@ import {
 import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
-  // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
-  // Products
   getProducts(category?: string): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product>;
 
-  // Cart
   getCartItems(userId: number): Promise<(CartItem & { product: Product })[]>;
   addToCart(userId: number, item: InsertCartItem): Promise<CartItem>;
   updateCartItem(id: number, quantity: number): Promise<CartItem>;
   removeFromCart(id: number): Promise<void>;
   clearCart(userId: number): Promise<void>;
 
-  // Orders
   createOrder(order: InsertOrder): Promise<Order>;
   createOrderItem(item: Omit<OrderItem, "id">): Promise<OrderItem>;
   getOrder(id: number): Promise<Order | undefined>;
@@ -85,9 +81,7 @@ export class DatabaseStorage implements IStorage {
   // Cart
   async getCartItems(userId: number): Promise<(CartItem & { product: Product })[]> {
     const items = await db.select().from(cartItems).where(eq(cartItems.userId, userId));
-    // Manually join since simple select doesn't do relations automatically in return type
-    // Or use query builder
-    const result = [];
+    const result: (CartItem & { product: Product })[] = [];
     for (const item of items) {
       const [product] = await db.select().from(products).where(eq(products.id, item.productId));
       if (product) {
@@ -98,7 +92,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addToCart(userId: number, item: InsertCartItem): Promise<CartItem> {
-    // Check if exists
     const [existing] = await db.select().from(cartItems).where(
       and(eq(cartItems.userId, userId), eq(cartItems.productId, item.productId))
     );
