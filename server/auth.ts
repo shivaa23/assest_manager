@@ -1,10 +1,11 @@
-// server/auth.ts
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { type Express } from "express";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
+import { sessionMiddleware } from "./session";
+import { requireAdmin } from "./middlewares/requireAdmin";
 import { User as SelectUser } from "@shared/schema";
 
 declare global {
@@ -15,42 +16,45 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
+// 🔐 Hash password
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
 
+// 🔐 Compare password
 async function comparePasswords(supplied: string, stored: string) {
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
-  import { sessionMiddleware } from "./session";
+
 export function setupAuth(app: Express) {
-
   app.use(sessionMiddleware);
-
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // ✅ Passport strategy
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
-          return done(null, user);
-        }
+        if (!user) return done(null, false);
+
+        const isValid = await comparePasswords(password, user.password);
+        if (!isValid) return done(null, false);
+
+        return done(null, user);
       } catch (err) {
-        return done(err);
+        done(err);
       }
-    }),
+    })
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
+
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -60,16 +64,18 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Register
+  // 📝 Register
   app.post("/api/register", async (req, res, next) => {
     try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) return res.status(400).send("Username already exists");
+      const existing = await storage.getUserByUsername(req.body.username);
+      if (existing) return res.status(400).json({ message: "User exists" });
 
       const hashedPassword = await hashPassword(req.body.password);
+
       const user = await storage.createUser({
-        ...req.body,
+        username: req.body.username,
         password: hashedPassword,
+        isAdmin: false, // ❗ default user
       });
 
       req.login(user, (err) => {
@@ -81,12 +87,12 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Login
+  // 🔑 Login
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+    res.json(req.user);
   });
 
-  // Logout
+  // 🚪 Logout
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
@@ -94,9 +100,17 @@ export function setupAuth(app: Express) {
     });
   });
 
-  // Get current user
+  // 👤 Current user
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
+  });
+
+  // 🛡️ Admin test route
+  app.get("/api/admin/me", requireAdmin, (req, res) => {
+    res.json({
+      message: "Admin access granted",
+      user: req.user,
+    });
   });
 }

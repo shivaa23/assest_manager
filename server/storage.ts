@@ -39,11 +39,23 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+    async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  // Get orders for admin, optionally filter by user
+  // async getOrders(userId?: number): Promise<Order[]> {
+  //   if (userId) {
+  //     return await db.select().from(orders).where(eq(orders.userId, userId));
+  //   }
+  //   return await db.select().from(orders);
+  // }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
+  
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
@@ -77,6 +89,10 @@ export class DatabaseStorage implements IStorage {
     const [product] = await db.update(products).set(updates).where(eq(products.id, id)).returning();
     return product;
   }
+async deleteProduct(id: number): Promise<void> {
+  await db.delete(products).where(eq(products.id, id));
+  return;
+}
 
   // Cart
   async getCartItems(userId: number): Promise<(CartItem & { product: Product })[]> {
@@ -136,15 +152,31 @@ export class DatabaseStorage implements IStorage {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     return order;
   }
+  async getAllOrders(): Promise<Order[]> {
+  return await db.select().from(orders);
+}
 
   async getOrders(userId: number): Promise<Order[]> {
     return await db.select().from(orders).where(eq(orders.userId, userId));
   }
+  // Orders
+async getOrdersByUserId(userId?: number): Promise<Order[]> {
+  if (typeof userId === "number") {
+    return await db.select().from(orders).where(eq(orders.userId, userId));
+  }
+  // Return all orders if no userId
+  return await db.select().from(orders);
+}
+
 
   async updateOrder(id: number, updates: Partial<InsertOrder>): Promise<Order> {
     const [order] = await db.update(orders).set(updates).where(eq(orders.id, id)).returning();
     return order;
   }
 }
+// routes.ts
+
+
+
 
 export const storage = new DatabaseStorage();

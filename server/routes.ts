@@ -43,13 +43,38 @@ export async function registerRoutes(
     res.status(201).json(product);
   });
 
-  app.put(api.products.update.path, async (req, res) => {
-    if (!req.isAuthenticated() || !req.user.isAdmin) {
+app.put("/api/products/:id", async (req, res) => {
+  if (!req.isAuthenticated() || !req.user.isAdmin) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const id = Number(req.params.id);
+  const product = await storage.updateProduct(id, req.body);
+
+  res.json(product);
+});
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    if (!req.isAuthenticated() || !req.user?.isAdmin) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const product = await storage.updateProduct(parseInt(req.params.id), req.body);
-    res.json(product);
-  });
+
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid product id" });
+    }
+
+    await storage.deleteProduct(id);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE PRODUCT ERROR:", err);
+    res.status(500).json({ message: "Failed to delete product" });
+  }
+});
+
+
+
 
   // Cart
   app.get(api.cart.get.path, async (req, res) => {
@@ -80,64 +105,49 @@ export async function registerRoutes(
   app.post(api.orders.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     
-    // 1. Create Order in DB
-    const orderData = {
-      ...req.body,
-      userId: req.user.id,
-      status: "pending",
-      createdAt: new Date(),
-    };
-    
-    // In a real app, calculate totalAmount from cart items to avoid tampering
     const cartItems = await storage.getCartItems(req.user.id);
     if (cartItems.length === 0) return res.status(400).json({ message: "Cart is empty" });
 
-    // Calculate total from DB prices
     const totalAmount = cartItems.reduce((sum, item) => {
       const price = item.product.price ? parseFloat(item.product.price.toString()) : 0;
       return sum + (price * item.quantity);
     }, 0);
 
     const order = await storage.createOrder({
-      ...orderData,
+      ...req.body,
+      userId: req.user.id,
+      status: "pending",
+      createdAt: new Date(),
       totalAmount: totalAmount.toString(),
-      address: req.body.address // Ensure address is passed
     });
 
-    // 2. Create Order Items
     for (const item of cartItems) {
       await storage.createOrderItem({
         orderId: order.id,
         productId: item.productId,
         quantity: item.quantity,
-        price: item.product.price // Store snapshot price
+        price: item.product.price
       });
     }
 
-    // 3. Clear Cart
     await storage.clearCart(req.user.id);
 
-    // 4. If Razorpay, create order on Razorpay
     if (req.body.paymentMode === "razorpay") {
-      if (!razorpay) {
-        return res.status(503).json({ message: "Razorpay payment is not configured" });
-      }
+      if (!razorpay) return res.status(503).json({ message: "Razorpay payment is not configured" });
       try {
         const razorpayOrder = await razorpay.orders.create({
-          amount: Math.round(totalAmount * 100), // amount in the smallest currency unit
+          amount: Math.round(totalAmount * 100),
           currency: "INR",
           receipt: `order_rcptid_${order.id}`,
         });
         await storage.updateOrder(order.id, { paymentId: razorpayOrder.id });
-        // Send back the razorpay order details for the frontend
         return res.status(201).json({ ...order, razorpayOrderId: razorpayOrder.id });
       } catch (error) {
-        console.error("Razorpay Order Creation Error:", error);
+        console.error("Razorpay Error:", error);
         return res.status(500).json({ message: "Error creating Razorpay order" });
       }
     }
 
-    // 5. If COD, status is pending -> cod_confirmed
     if (req.body.paymentMode === "cod") {
       await storage.updateOrder(order.id, { status: "cod_confirmed" });
     }
@@ -148,17 +158,13 @@ export async function registerRoutes(
   app.post(api.orders.verifyPayment.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     
-    if (!process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(503).json({ message: "Razorpay payment is not configured" });
-    }
-    
+    if (!process.env.RAZORPAY_KEY_SECRET) return res.status(503).json({ message: "Razorpay not configured" });
+
     const { razorpayPaymentId, razorpaySignature } = req.body;
     const orderId = req.params.id;
     const order = await storage.getOrder(parseInt(orderId));
 
-    if (!order || !order.paymentId) {
-      return res.status(404).json({ message: "Order not found" });
-    }
+    if (!order || !order.paymentId) return res.status(404).json({ message: "Order not found" });
 
     const generated_signature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -185,8 +191,9 @@ export async function registerRoutes(
     if (!order || order.userId !== req.user.id) return res.status(404).json({ message: "Order not found" });
     res.json(order);
   });
+  
 
-  // Seed data on startup
+  // Seed data
   await seedDatabase();
 
   return httpServer;
