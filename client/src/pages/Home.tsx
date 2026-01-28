@@ -17,8 +17,9 @@ export default function Home() {
     },
   });
 
-  // Take first 4 items for featured section
-  const featuredProducts = products?.slice(0, 4) || [];
+  // Take first 6 items for featured section on mobile, first 4 for desktop
+  const featuredProducts = products?.slice(0, 6) || [];
+  const desktopFeaturedProducts = products?.slice(0, 4) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,13 +106,32 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* Mobile View: 2 columns, 6 items */}
+        <div className="grid grid-cols-2 gap-4 md:hidden">
           {featuredProducts.length > 0 ? (
             featuredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))
           ) : (
-            // Skeletons
+            // Skeletons for mobile
+            Array(6).fill(0).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-gray-200 aspect-[3/4] rounded-xl mb-2" />
+                <div className="h-3 bg-gray-200 w-3/4 mb-1 rounded" />
+                <div className="h-3 bg-gray-200 w-1/2 rounded" />
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View: 4 columns, 4 items */}
+        <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {desktopFeaturedProducts.length > 0 ? (
+            desktopFeaturedProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))
+          ) : (
+            // Skeletons for desktop
             Array(4).fill(0).map((_, i) => (
               <div key={i} className="animate-pulse">
                 <div className="bg-gray-200 aspect-[3/4] rounded-xl mb-4" />
