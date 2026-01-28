@@ -72,6 +72,40 @@ app.delete("/api/products/:id", async (req, res) => {
     res.status(500).json({ message: "Failed to delete product" });
   }
 });
+// ================= ADMIN ROUTES =================
+
+// Get all users (ADMIN)
+app.get("/api/admin/users", async (req, res) => {
+  if (!req.isAuthenticated() || !req.user?.isAdmin) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const users = await storage.getAllUsers();
+  res.json(users);
+});
+
+// Get all orders OR filter by userId (ADMIN)
+app.get("/api/admin/orders", async (req, res) => {
+  if (!req.isAuthenticated() || !req.user?.isAdmin) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const userId = req.query.userId
+    ? Number(req.query.userId)
+    : undefined;
+
+  const orders = await storage.getOrdersByUserId(userId);
+
+  // Attach user details
+  const ordersWithUser = await Promise.all(
+    orders.map(async (order) => {
+      const user = await storage.getUser(order.userId);
+      return { ...order, user };
+    })
+  );
+
+  res.json(ordersWithUser);
+});
 
 
 
@@ -82,6 +116,7 @@ app.delete("/api/products/:id", async (req, res) => {
     const cart = await storage.getCartItems(req.user.id);
     res.json(cart);
   });
+  
 
   app.post(api.cart.add.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
